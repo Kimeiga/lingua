@@ -27,7 +27,7 @@ KV counters are a cost guard, not an authentication system. A determined anonymo
 
 ## Deploy
 
-The Worker deploys to `lingua.hakanalpai.com`.
+The Worker deploys to `lingua.hakanalpay.com`.
 
 ```sh
 npm run cf-typegen

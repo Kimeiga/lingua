@@ -10,7 +10,7 @@
   },
   "routes": [
     {
-      "pattern": "lingua.hakanalpai.com",
+      "pattern": "lingua.hakanalpay.com",
       "custom_domain": true
     }
   ],

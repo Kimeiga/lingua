@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeEvaluation, sanitizeGeneratedExercise } from './openai';
+import { isRetryableOpenAIError, sanitizeEvaluation, sanitizeGeneratedExercise } from './openai';
 
 describe('model output validation', () => {
 	it('forces requested language and direction instead of trusting model metadata', () => {
@@ -34,5 +34,10 @@ describe('model output validation', () => {
 		expect(result.status).toBe('retry');
 		expect(result.issues).toEqual([]);
 	});
-});
 
+	it('retries transient provider failures but not deterministic client errors', () => {
+		expect(isRetryableOpenAIError(new Error('OpenAI response was incomplete: max_output_tokens'))).toBe(true);
+		expect(isRetryableOpenAIError(new Error('OpenAI request failed with 503'))).toBe(true);
+		expect(isRetryableOpenAIError(new Error('OpenAI request failed with 400: invalid schema'))).toBe(false);
+	});
+});

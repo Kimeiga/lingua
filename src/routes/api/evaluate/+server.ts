@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { cleanString, cleanStrings, parseClientId, sanitizeProfile } from '$lib/server/input';
-import { evaluateAnswer } from '$lib/server/openai';
+import { evaluateAnswer, isRetryableOpenAIError } from '$lib/server/openai';
 import { runtimeValue } from '$lib/server/runtime';
 import { openState } from '$lib/server/state';
 import { exactReferenceMatch, referenceMatchResult } from '$lib/server/tutor';
@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, platform, fetch }) => {
 
 	const identifier = await consumeAiUnits(platform, clientId, 1);
 	try {
-		const result = await evaluateAnswer({
+		const options = {
 			fetcher: fetch,
 			apiKey,
 			model: runtimeValue(platform, 'OPENAI_MODEL') || 'gpt-5.6-sol',
@@ -42,11 +42,22 @@ export const POST: RequestHandler = async ({ request, platform, fetch }) => {
 			priorHints: cleanStrings(body.priorHints, 3, 320),
 			profile,
 			safetyIdentifier: identifier
-		});
+		};
+		let result;
+		try {
+			result = await evaluateAnswer(options);
+		} catch (cause) {
+			if (!isRetryableOpenAIError(cause)) throw cause;
+			console.warn('Retrying transient answer evaluation failure', {
+				name: cause instanceof Error ? cause.name : 'unknown',
+				message: cause instanceof Error ? cause.message.slice(0, 160) : 'unknown'
+			});
+			await consumeAiUnits(platform, clientId, 1);
+			result = await evaluateAnswer(options);
+		}
 		return json(result, { headers: { 'cache-control': 'no-store' } });
 	} catch (cause) {
 		console.error('Answer evaluation failed', cause);
 		throw error(502, 'The tutor could not check that answer. Your writing is still here—try again in a moment.');
 	}
 };
-

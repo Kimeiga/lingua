@@ -167,6 +167,13 @@ function usageSummary(payload: unknown): Record<string, unknown> | undefined {
 	return usage && typeof usage === 'object' ? usage as Record<string, unknown> : undefined;
 }
 
+export function isRetryableOpenAIError(cause: unknown): boolean {
+	if (cause instanceof SyntaxError || cause instanceof TypeError) return true;
+	if (!(cause instanceof Error)) return false;
+	if (cause.name === 'AbortError' || cause.name === 'TimeoutError') return true;
+	return /OpenAI request failed with (429|5\d\d)|response was incomplete|did not contain structured output/u.test(cause.message);
+}
+
 async function requestStructured(
 	fetcher: Fetcher,
 	apiKey: string,
@@ -435,7 +442,7 @@ export async function evaluateAnswer(options: {
 			verbosity: 'low',
 			format: { type: 'json_schema', name: 'lingua_evaluation', strict: true, schema: evaluationSchema }
 		}
-	}, 45_000);
+	}, 20_000);
 	console.info('Answer evaluated', { model: options.model, requestId, durationMs: Date.now() - startedAt, usage });
 	return sanitizeEvaluation(value, options.answer, options.exercise.grammarPoints);
 }
