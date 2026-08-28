@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.svelte-kit/
+.wrangler/
+build/
+coverage/
+node_modules/
+playwright-report/
+test-results/
