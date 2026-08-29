@@ -9,7 +9,7 @@ export default defineConfig({
 	},
 	projects: [
 		{ name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-		{ name: 'mobile', use: { ...devices['iPhone 13'] } }
+		{ name: 'mobile-safari', use: { ...devices['iPhone 13'], browserName: 'webkit' } }
 	],
 	webServer: {
 		command: 'npm run dev -- --port 4173',
@@ -18,4 +18,3 @@ export default defineConfig({
 		timeout: 120_000
 	}
 });
-

@@ -461,10 +461,6 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 {/if}
 
 <style>
-	:global(body) {
-		overflow: hidden;
-	}
-
 	.setup-shell,
 	.practice-shell,
 	.loading-screen {
@@ -770,9 +766,9 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 	}
 
 	@media (max-width: 820px) {
-		.setup-main { grid-template-columns: 1fr; overflow-y: auto; }
-		.setup-copy { min-height: 50dvh; padding-top: 4rem; padding-bottom: 4rem; border-right: 0; border-bottom: 1px solid var(--line); }
-		.setup-form { min-height: 50dvh; }
+		.setup-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+		.setup-copy { padding: 3rem clamp(2rem, 9vw, 5rem); border-right: 0; border-bottom: 1px solid var(--line); }
+		.setup-form { padding: 2.5rem clamp(2rem, 9vw, 5rem); }
 		.session-settings { grid-template-columns: 1fr; align-items: start; }
 		.session-settings button { justify-self: start; }
 	}
@@ -780,6 +776,41 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 	@media (max-width: 600px) {
 		.brand-bar,
 		.practice-bar { padding-inline: 1rem; }
+		.brand-bar { height: 3.75rem; }
+		.setup-main {
+			min-height: calc(100svh - 3.75rem);
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+		.setup-copy { padding: 1.15rem 1.25rem 1.1rem; }
+		.eyebrow { margin-bottom: 0.55rem; font-size: 0.62rem; }
+		.setup-copy h1 {
+			max-width: none;
+			font-size: clamp(2.45rem, 11vw, 3rem);
+			line-height: 0.94;
+		}
+		.intro {
+			max-width: 29rem;
+			margin-top: 0.85rem;
+			font-size: 0.88rem;
+			line-height: 1.42;
+		}
+		.setup-form {
+			justify-content: flex-start;
+			padding: 1rem 1.25rem max(1rem, env(safe-area-inset-bottom));
+		}
+		.setup-form > input {
+			margin: 0.3rem 0 1rem;
+			padding: 0.2rem 0 0.45rem;
+			font-size: 1.75rem;
+		}
+		fieldset legend { margin-bottom: 0.35rem; }
+		.direction-choice { padding: 0.65rem 0; }
+		.primary-action {
+			width: 100%;
+			min-height: 2.75rem;
+			margin-top: 0.9rem;
+			padding: 0.7rem 1rem;
+		}
 		.edition,
 		.session-meta { display: none; }
 		.settings-button span { display: none; }

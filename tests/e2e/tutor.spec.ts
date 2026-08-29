@@ -11,6 +11,50 @@ const exercise = {
 	prompt: 'Obwohl es spät ist, rufe ich sie noch an.'
 };
 
+test('keeps every setup control above the visible iOS Safari fold', async ({ page }, testInfo) => {
+	await page.setViewportSize({ width: 390, height: 664 });
+	await page.goto('/');
+
+	const controls = [
+		page.getByLabel('Target language'),
+		page.getByText('German', { exact: true }).last(),
+		page.getByText('English', { exact: true }).last(),
+		page.getByRole('button', { name: /^Start/ })
+	];
+	for (const control of controls) await expect(control).toBeVisible();
+
+	const startBox = await page.getByRole('button', { name: /^Start/ }).boundingBox();
+	expect(startBox).not.toBeNull();
+	// Keep clear of Safari's floating bottom toolbar, not merely inside the CSS viewport.
+	expect(startBox!.y + startBox!.height).toBeLessThanOrEqual(592);
+
+	const pageMetrics = await page.evaluate(() => ({
+		innerHeight,
+		scrollHeight: document.documentElement.scrollHeight,
+		bodyOverflow: getComputedStyle(document.body).overflowY
+	}));
+	expect(pageMetrics.scrollHeight).toBeLessThanOrEqual(pageMetrics.innerHeight + 1);
+	expect(pageMetrics.bodyOverflow).not.toBe('hidden');
+	await page.screenshot({ path: testInfo.outputPath('mobile-setup-fold.png') });
+});
+
+test('allows native setup scrolling on a shorter mobile viewport', async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 500 });
+	await page.goto('/');
+
+	const before = await page.evaluate(() => ({
+		innerHeight,
+		scrollHeight: document.documentElement.scrollHeight,
+		bodyOverflow: getComputedStyle(document.body).overflowY
+	}));
+	expect(before.scrollHeight).toBeGreaterThan(before.innerHeight);
+	expect(before.bodyOverflow).not.toBe('hidden');
+
+	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+	await expect(page.getByRole('button', { name: /^Start/ })).toBeVisible();
+});
+
 test('starts German practice, teaches a repair, and opens the word pane', async ({ page }, testInfo) => {
 	let checks = 0;
 	await page.route('**/api/exercise', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(exercise) }));
