@@ -8,9 +8,11 @@ function fixture(): ExerciseState {
 		createdAt: Date.now(),
 		expiresAt: Date.now() + 60_000,
 		exercise: {
+			sourceLanguage: 'English',
+			sourceLocale: 'en',
 			targetLanguage: 'German',
 			targetLocale: 'de',
-			direction: 'target_to_english',
+			direction: 'target_to_source',
 			cefr: 'B1',
 			situation: 'Making plans after work',
 			prompt: 'Ich schaffe es heute nicht mehr.',

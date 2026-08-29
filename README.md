@@ -1,6 +1,8 @@
 # Lingua
 
-Lingua is an adaptive translation practice app for any target language. GPT-5.6 Sol creates one intermediate daily-conversation sentence, its private answer lattice, and word-level study notes. The learner revises the answer until it is correct.
+Lingua is an adaptive translation practice app for any source and target language pair. GPT-5.6 Sol creates one intermediate daily-conversation sentence, its private answer lattice, and word-level study notes. The learner revises the answer until it is correct.
+
+The language selectors put the [2025 Duolingo global top ten](https://blog.duolingo.com/2025-duolingo-language-report/) first, followed by the broader supported catalog. If both practice directions are active, each new sentence alternates direction automatically.
 
 ## Local setup
 
@@ -18,7 +20,7 @@ Use Node.js 22 or newer.
 - The generated answer lattice accepts multiple natural translations.
 - Exact reference-answer matches skip the evaluation model call.
 - Evaluation receives only the facts it needs, not the full word-reference payload.
-- A generated exercise enters a small 30-day KV pool for the same language, direction, and level. The pool grows only when someone asks for that language, and recent prompts are never repeated in one browser.
+- A generated exercise enters a small 30-day KV pool for the same source language, target language, direction, and level. The pool grows only on demand, and recent prompts are never repeated in one browser.
 - Cloudflare Rate Limiting caps bursts at 12 AI calls per minute per anonymous browser.
 - Workers KV applies a 120-unit daily cap. Exercise generation costs three units; answer evaluation costs one.
 - The OpenAI key exists only as a Cloudflare Worker secret.

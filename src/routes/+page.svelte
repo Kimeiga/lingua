@@ -5,7 +5,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { ArrowRight, Check, LoaderCircle, RotateCcw, Settings2, XCircle } from '@lucide/svelte';
+	import { ArrowLeftRight, ArrowRight, Check, ChevronDown, LoaderCircle, RotateCcw, Settings2, XCircle } from '@lucide/svelte';
 	import ReferencePane from '$lib/ReferencePane.svelte';
 	import {
 		defaultProfile,
@@ -15,15 +15,16 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		type PublicExercise,
 		type TutorIssue
 	} from '$lib/contracts';
-	import { languageFromName, languages } from '$lib/languages';
+	import { additionalLanguages, languageFromLocale, languageFromName, popularLanguages } from '$lib/languages';
 
 	type Screen = 'setup' | 'loading' | 'practice';
 	type TextPiece = { text: string; wordLike: boolean; start: number; issue: TutorIssue | null; issueIndex: number };
 
 	let screen = $state<Screen>('setup');
-	let targetLanguageName = $state('German');
-	let targetToEnglish = $state(true);
-	let englishToTarget = $state(true);
+	let sourceLanguageLocale = $state('en');
+	let targetLanguageLocale = $state('de');
+	let targetToSource = $state(true);
+	let sourceToTarget = $state(true);
 	let exercise = $state<PublicExercise | null>(null);
 	let answer = $state('');
 	let result = $state<EvaluationResult | null>(null);
@@ -49,26 +50,43 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		'Preparing the word notes'
 	];
 
+	const sourceLanguage = $derived(languageFromLocale(sourceLanguageLocale));
+	const targetLanguage = $derived(languageFromLocale(targetLanguageLocale));
 	const selectedDirections = $derived([
-		...(targetToEnglish ? ['target_to_english' as Direction] : []),
-		...(englishToTarget ? ['english_to_target' as Direction] : [])
+		...(targetToSource ? ['target_to_source' as Direction] : []),
+		...(sourceToTarget ? ['source_to_target' as Direction] : [])
 	]);
-	const directionLabel = $derived(exercise?.direction === 'target_to_english'
-		? `${exercise.targetLanguage} → English`
-		: exercise ? `English → ${exercise.targetLanguage}` : '');
-	const promptPieces = $derived(exercise ? segmentText(exercise.prompt, exercise.direction === 'target_to_english' ? exercise.targetLocale : 'en') : []);
-	const answerPieces = $derived(exercise ? buildAnswerPieces(answer, result?.issues ?? [], exercise.direction === 'english_to_target' ? exercise.targetLocale : 'en') : []);
+	const directionLabel = $derived(exercise?.direction === 'target_to_source'
+		? `${exercise.targetLanguage} → ${exercise.sourceLanguage}`
+		: exercise ? `${exercise.sourceLanguage} → ${exercise.targetLanguage}` : '');
+	const promptLanguage = $derived(exercise?.direction === 'target_to_source' ? exercise.targetLanguage : exercise?.sourceLanguage ?? '');
+	const promptLocale = $derived(exercise?.direction === 'target_to_source' ? exercise.targetLocale : exercise?.sourceLocale ?? 'en');
+	const answerLanguage = $derived(exercise?.direction === 'target_to_source' ? exercise.sourceLanguage : exercise?.targetLanguage ?? '');
+	const answerLocale = $derived(exercise?.direction === 'target_to_source' ? exercise.sourceLocale : exercise?.targetLocale ?? 'en');
+	const promptPieces = $derived(exercise ? segmentText(exercise.prompt, promptLocale) : []);
+	const answerPieces = $derived(exercise ? buildAnswerPieces(answer, result?.issues ?? [], answerLocale) : []);
+	const referenceLanguage = $derived(referenceScope === 'source' ? promptLanguage : answerLanguage);
+	const referenceLocale = $derived(referenceScope === 'source' ? promptLocale : answerLocale);
 
 	onMount(() => {
 		shortcutKey = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 		clientId = localStorage.getItem('lingua-client-id') || crypto.randomUUID().replaceAll('-', '');
 		localStorage.setItem('lingua-client-id', clientId);
 		try {
-			const savedSettings = JSON.parse(localStorage.getItem('lingua-settings-v1') || '{}') as Record<string, unknown>;
-			if (typeof savedSettings.language === 'string') targetLanguageName = savedSettings.language;
-			if (typeof savedSettings.targetToEnglish === 'boolean') targetToEnglish = savedSettings.targetToEnglish;
-			if (typeof savedSettings.englishToTarget === 'boolean') englishToTarget = savedSettings.englishToTarget;
-			if (!targetToEnglish && !englishToTarget) targetToEnglish = true;
+			const savedSettings = JSON.parse(localStorage.getItem('lingua-settings-v2') || 'null') as Record<string, unknown> | null;
+			if (savedSettings) {
+				if (typeof savedSettings.sourceLocale === 'string') sourceLanguageLocale = languageFromLocale(savedSettings.sourceLocale).locale;
+				if (typeof savedSettings.targetLocale === 'string') targetLanguageLocale = languageFromLocale(savedSettings.targetLocale).locale;
+				if (typeof savedSettings.targetToSource === 'boolean') targetToSource = savedSettings.targetToSource;
+				if (typeof savedSettings.sourceToTarget === 'boolean') sourceToTarget = savedSettings.sourceToTarget;
+			} else {
+				const legacy = JSON.parse(localStorage.getItem('lingua-settings-v1') || '{}') as Record<string, unknown>;
+				if (typeof legacy.language === 'string') targetLanguageLocale = languageFromName(legacy.language).locale;
+				if (typeof legacy.targetToEnglish === 'boolean') targetToSource = legacy.targetToEnglish;
+				if (typeof legacy.englishToTarget === 'boolean') sourceToTarget = legacy.englishToTarget;
+			}
+			if (sourceLanguageLocale === targetLanguageLocale) targetLanguageLocale = sourceLanguageLocale === 'de' ? 'es' : 'de';
+			if (!targetToSource && !sourceToTarget) targetToSource = true;
 			const savedProfile = JSON.parse(localStorage.getItem('lingua-profile-v1') || 'null');
 			if (savedProfile) profile = sanitizeStoredProfile(savedProfile);
 		} catch {
@@ -93,12 +111,35 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 	}
 
 	function persist() {
-		localStorage.setItem('lingua-settings-v1', JSON.stringify({ language: targetLanguageName, targetToEnglish, englishToTarget }));
+		localStorage.setItem('lingua-settings-v2', JSON.stringify({
+			sourceLocale: sourceLanguageLocale,
+			targetLocale: targetLanguageLocale,
+			targetToSource,
+			sourceToTarget
+		}));
 		localStorage.setItem('lingua-profile-v1', JSON.stringify(profile));
 	}
 
+	function selectSource(event: Event) {
+		const next = (event.currentTarget as HTMLSelectElement).value;
+		const previous = sourceLanguageLocale;
+		sourceLanguageLocale = next;
+		if (next === targetLanguageLocale) targetLanguageLocale = previous;
+	}
+
+	function selectTarget(event: Event) {
+		const next = (event.currentTarget as HTMLSelectElement).value;
+		const previous = targetLanguageLocale;
+		targetLanguageLocale = next;
+		if (next === sourceLanguageLocale) sourceLanguageLocale = previous;
+	}
+
+	function swapLanguages() {
+		[sourceLanguageLocale, targetLanguageLocale] = [targetLanguageLocale, sourceLanguageLocale];
+	}
+
 	async function startSession() {
-		if (!targetLanguageName.trim() || selectedDirections.length === 0 || !clientId) return;
+		if (sourceLanguageLocale === targetLanguageLocale || selectedDirections.length === 0 || !clientId) return;
 		persist();
 		settingsOpen = false;
 		await loadExercise();
@@ -117,11 +158,17 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		closeReference();
 		const interval = window.setInterval(() => loadingLine = (loadingLine + 1) % loadingLines.length, 1650);
 		try {
-			const language = languageFromName(targetLanguageName);
 			const response = await fetch('/api/exercise', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ language, directions: selectedDirections, profile, clientId })
+				body: JSON.stringify({
+					sourceLanguage,
+					targetLanguage,
+					directions: selectedDirections,
+					previousDirection: previous?.direction,
+					profile,
+					clientId
+				})
 			});
 			const payload = await response.json() as PublicExercise & { message?: string };
 			if (!response.ok) throw new Error(payload.message || 'The tutor could not prepare a sentence.');
@@ -275,6 +322,19 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 
 <svelte:window onkeydown={handleKeydown} />
 
+{#snippet languageOptions()}
+	<optgroup label="Most popular">
+		{#each popularLanguages as language}
+			<option value={language.locale}>{language.name === language.nativeName ? language.name : `${language.name} · ${language.nativeName}`}</option>
+		{/each}
+	</optgroup>
+	<optgroup label="More languages">
+		{#each additionalLanguages as language}
+			<option value={language.locale}>{language.name === language.nativeName ? language.name : `${language.name} · ${language.nativeName}`}</option>
+		{/each}
+	</optgroup>
+{/snippet}
+
 {#if screen === 'setup'}
 	<div class="setup-shell">
 		<header class="brand-bar">
@@ -290,29 +350,41 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 			</section>
 
 			<form class="setup-form" onsubmit={(event) => { event.preventDefault(); void startSession(); }}>
-				<label class="language-label" for="target-language">Target language</label>
-				<input id="target-language" list="language-list" bind:value={targetLanguageName} autocomplete="off" required />
-				<datalist id="language-list">
-					{#each languages as language}
-						<option value={language.name}>{language.nativeName}</option>
-					{/each}
-				</datalist>
+				<div class="language-pair">
+					<label class="language-select" for="source-language">
+						<span>Source language</span>
+						<span class="select-control">
+							{#key sourceLanguageLocale}<select id="source-language" value={sourceLanguageLocale} onchange={selectSource}>{@render languageOptions()}</select>{/key}
+							<ChevronDown size={17} strokeWidth={1.8} />
+						</span>
+					</label>
+					<button class="swap-languages" type="button" onclick={swapLanguages} aria-label="Swap source and target languages" title="Swap languages">
+						<ArrowLeftRight size={18} strokeWidth={1.7} />
+					</button>
+					<label class="language-select" for="target-language">
+						<span>Target language</span>
+						<span class="select-control">
+							{#key targetLanguageLocale}<select id="target-language" value={targetLanguageLocale} onchange={selectTarget}>{@render languageOptions()}</select>{/key}
+							<ChevronDown size={17} strokeWidth={1.8} />
+						</span>
+					</label>
+				</div>
 
 				<fieldset>
 					<legend>Practice directions</legend>
 					<label class="direction-choice">
-						<span><strong>{targetLanguageName || 'Target language'}</strong><small>into English</small></span>
-						<input type="checkbox" bind:checked={targetToEnglish} />
+						<span><strong>{targetLanguage.name}</strong><small>into {sourceLanguage.name}</small></span>
+						<input type="checkbox" bind:checked={targetToSource} />
 					</label>
 					<label class="direction-choice">
-						<span><strong>English</strong><small>into {targetLanguageName || 'the target language'}</small></span>
-						<input type="checkbox" bind:checked={englishToTarget} />
+						<span><strong>{sourceLanguage.name}</strong><small>into {targetLanguage.name}</small></span>
+						<input type="checkbox" bind:checked={sourceToTarget} />
 					</label>
 				</fieldset>
 
 				{#if selectedDirections.length === 0}<p class="form-note error-text">Keep at least one direction on.</p>{/if}
 				{#if requestError}<p class="form-note error-text" role="alert">{requestError}</p>{/if}
-				<button class="primary-action" type="submit" disabled={!targetLanguageName.trim() || selectedDirections.length === 0 || !clientId}>
+				<button class="primary-action" type="submit" disabled={sourceLanguageLocale === targetLanguageLocale || selectedDirections.length === 0 || !clientId}>
 					Start <ArrowRight size={20} strokeWidth={1.8} />
 				</button>
 			</form>
@@ -324,7 +396,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		<div class="loading-copy">
 			<LoaderCircle class="spinner" size={28} strokeWidth={1.5} />
 			<p>{loadingLines[loadingLine]}</p>
-			<span>{targetLanguageName} · intermediate</span>
+			<span>{sourceLanguage.name} ↔ {targetLanguage.name} · intermediate</span>
 		</div>
 	</main>
 {:else if exercise}
@@ -342,13 +414,14 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 
 		{#if settingsOpen}
 			<section class="session-settings" aria-label="Session settings">
-				<label>Target language <input list="language-list-settings" bind:value={targetLanguageName} /></label>
-				<datalist id="language-list-settings">
-					{#each languages as language}<option value={language.name}>{language.nativeName}</option>{/each}
-				</datalist>
-				<label class="mini-toggle"><input type="checkbox" bind:checked={targetToEnglish} /> {targetLanguageName} → English</label>
-				<label class="mini-toggle"><input type="checkbox" bind:checked={englishToTarget} /> English → {targetLanguageName}</label>
-				<button type="button" onclick={() => void startSession()} disabled={!targetLanguageName.trim() || selectedDirections.length === 0}>Apply and get a new sentence</button>
+				<div class="settings-language-pair">
+					<label>Source language {#key sourceLanguageLocale}<select aria-label="Session source language" value={sourceLanguageLocale} onchange={selectSource}>{@render languageOptions()}</select>{/key}</label>
+					<button class="settings-swap" type="button" onclick={swapLanguages} aria-label="Swap session languages"><ArrowLeftRight size={16} /></button>
+					<label>Target language {#key targetLanguageLocale}<select aria-label="Session target language" value={targetLanguageLocale} onchange={selectTarget}>{@render languageOptions()}</select>{/key}</label>
+				</div>
+				<label class="mini-toggle"><input type="checkbox" bind:checked={targetToSource} /> {targetLanguage.name} → {sourceLanguage.name}</label>
+				<label class="mini-toggle"><input type="checkbox" bind:checked={sourceToTarget} /> {sourceLanguage.name} → {targetLanguage.name}</label>
+				<button type="button" onclick={() => void startSession()} disabled={sourceLanguageLocale === targetLanguageLocale || selectedDirections.length === 0}>Apply and get a new sentence</button>
 				{#if selectedDirections.length === 0}<span class="settings-warning">Choose at least one direction.</span>{/if}
 			</section>
 		{/if}
@@ -358,14 +431,14 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 				<div class="task-heading">
 					<div>
 						<span class="task-number">Sentence {profile.correct + 1}</span>
-						<h1>Translate into {exercise.direction === 'target_to_english' ? 'English' : exercise.targetLanguage}</h1>
+						<h1>Translate into {answerLanguage}</h1>
 					</div>
 					<div class="direction-mark"><span>{directionLabel}</span><small>{exercise.cefr}</small></div>
 				</div>
 
 				<section class="sentence-stage" aria-label="Sentence to translate">
 					<p class="situation">{exercise.situation}</p>
-					<div class="prompt" lang={exercise.direction === 'target_to_english' && exercise.targetLocale !== 'und' ? exercise.targetLocale : 'en'}>
+					<div class="prompt" lang={promptLocale !== 'und' ? promptLocale : undefined}>
 						{#each promptPieces as piece}
 							{#if piece.wordLike}
 								<button type="button" onclick={() => openReference(piece.text, 'source')}>{piece.text}</button>
@@ -384,7 +457,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 							bind:value={answer}
 							oninput={resizeAnswer}
 							ondblclick={inspectTextareaSelection}
-							lang={exercise.direction === 'english_to_target' && exercise.targetLocale !== 'und' ? exercise.targetLocale : undefined}
+							lang={answerLocale !== 'und' ? answerLocale : undefined}
 							placeholder="Write the sentence here…"
 							aria-describedby="answer-help"
 							maxlength="1600"
@@ -454,7 +527,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 			</main>
 
 			{#if referenceOpen}
-				<ReferencePane query={referenceQuery} stateToken={exercise.stateToken} scope={referenceScope} language={exercise.targetLanguage} locale={exercise.targetLocale} onclose={closeReference} />
+				<ReferencePane query={referenceQuery} stateToken={exercise.stateToken} scope={referenceScope} language={referenceLanguage} locale={referenceLocale} onclose={closeReference} />
 			{/if}
 		</div>
 	</div>
@@ -500,7 +573,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 
 	.edition,
 	.eyebrow,
-	.language-label,
+	.language-select > span:first-child,
 	fieldset legend,
 	.task-number,
 	.direction-mark,
@@ -560,23 +633,67 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		background: #eef3ef;
 	}
 
-	.language-label,
+	.language-select > span:first-child,
 	fieldset legend { color: var(--muted); }
 
-	.setup-form > input,
-	.session-settings input[list] {
-		width: 100%;
-		margin: 0.65rem 0 2.5rem;
-		padding: 0.45rem 0 0.65rem;
-		border: 0;
+	.language-pair {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 2.75rem minmax(0, 1fr);
+		align-items: end;
+		gap: 0.65rem;
+		margin-bottom: 2.5rem;
+	}
+
+	.language-select {
+		display: grid;
+		min-width: 0;
+		gap: 0.65rem;
+	}
+
+	.select-control {
+		position: relative;
+		display: block;
+		min-width: 0;
 		border-bottom: 2px solid var(--ink);
+	}
+
+	.select-control select {
+		width: 100%;
+		min-width: 0;
+		padding: 0.45rem 1.55rem 0.65rem 0;
+		border: 0;
 		border-radius: 0;
 		background: transparent;
 		color: var(--ink);
-		font-size: clamp(2rem, 4vw, 3.2rem);
+		font-size: clamp(1.3rem, 2.7vw, 2.1rem);
 		font-weight: 520;
-		letter-spacing: -0.04em;
+		letter-spacing: -0.035em;
+		text-overflow: ellipsis;
+		appearance: none;
+		cursor: pointer;
 	}
+
+	.select-control :global(svg) {
+		position: absolute;
+		right: 0;
+		bottom: 0.85rem;
+		pointer-events: none;
+	}
+
+	.swap-languages {
+		display: inline-grid;
+		width: 2.75rem;
+		height: 2.75rem;
+		margin-bottom: 0.25rem;
+		place-items: center;
+		border: 1px solid var(--line);
+		border-radius: 50%;
+		background: transparent;
+		color: var(--muted);
+		cursor: pointer;
+	}
+
+	.swap-languages:hover { border-color: var(--blue); color: var(--blue); }
 
 	fieldset {
 		margin: 0;
@@ -665,7 +782,7 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 
 	.session-settings {
 		display: grid;
-		grid-template-columns: minmax(12rem, 1fr) auto auto auto;
+		grid-template-columns: minmax(20rem, 1fr) auto auto auto;
 		align-items: center;
 		gap: 1.2rem;
 		padding: 1rem clamp(1.25rem, 4vw, 3.5rem);
@@ -674,8 +791,10 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 		font-size: 0.82rem;
 	}
 
-	.session-settings > label:first-child { display: grid; gap: 0.3rem; color: var(--muted); }
-	.session-settings input[list] { margin: 0; padding: 0.2rem 0; border-width: 1px; font-size: 1.05rem; }
+	.settings-language-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 0.6rem; }
+	.settings-language-pair label { display: grid; min-width: 0; gap: 0.3rem; color: var(--muted); }
+	.settings-language-pair select { min-width: 0; width: 100%; padding: 0.25rem 1.2rem 0.25rem 0; border: 0; border-bottom: 1px solid var(--ink); border-radius: 0; background: transparent; font-size: 0.95rem; }
+	.session-settings .settings-swap { align-self: end; padding: 0.35rem; border: 0; }
 	.mini-toggle { display: flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
 	.session-settings button { padding: 0.75rem 0.9rem; border: 1px solid var(--ink); background: transparent; cursor: pointer; }
 	.session-settings button:hover { background: var(--ink); color: var(--paper); }
@@ -798,11 +917,12 @@ LAYOUT: One full-height practice stage splits right in landscape and below in po
 			justify-content: flex-start;
 			padding: 1rem 1.25rem max(1rem, env(safe-area-inset-bottom));
 		}
-		.setup-form > input {
-			margin: 0.3rem 0 1rem;
-			padding: 0.2rem 0 0.45rem;
-			font-size: 1.75rem;
-		}
+		.language-pair { grid-template-columns: minmax(0, 1fr) 2.25rem minmax(0, 1fr); gap: 0.45rem; margin-bottom: 0.9rem; }
+		.language-select { gap: 0.3rem; }
+		.language-select > span:first-child { font-size: 0.58rem; }
+		.select-control select { padding: 0.25rem 1.2rem 0.4rem 0; font-size: 1rem; }
+		.select-control :global(svg) { right: 0; bottom: 0.55rem; width: 0.85rem; }
+		.swap-languages { width: 2.25rem; height: 2.25rem; margin-bottom: 0.15rem; }
 		fieldset legend { margin-bottom: 0.35rem; }
 		.direction-choice { padding: 0.65rem 0; }
 		.primary-action {

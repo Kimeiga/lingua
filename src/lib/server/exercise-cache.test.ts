@@ -3,9 +3,11 @@ import { defaultProfile, type GeneratedExercise } from '$lib/contracts';
 import { cachedExercise, cacheExercise } from './exercise-cache';
 
 const exercise: GeneratedExercise = {
+	sourceLanguage: 'English',
+	sourceLocale: 'en',
 	targetLanguage: 'German',
 	targetLocale: 'de',
-	direction: 'target_to_english',
+	direction: 'target_to_source',
 	cefr: 'B1',
 	situation: 'Leaving soon',
 	prompt: 'Der Bus fährt in fünf Minuten.',
@@ -33,20 +35,35 @@ describe('incremental exercise pool', () => {
 		await cacheExercise({ platform, exercise, level: 3 });
 		const first = await cachedExercise({
 			platform,
-			language: 'German',
-			locale: 'de',
-			direction: 'target_to_english',
+			sourceLanguage: 'English',
+			sourceLocale: 'en',
+			targetLanguage: 'German',
+			targetLocale: 'de',
+			direction: 'target_to_source',
 			profile: { ...defaultProfile }
 		});
 		expect(first?.prompt).toBe(exercise.prompt);
 
 		const repeated = await cachedExercise({
 			platform,
-			language: 'German',
-			locale: 'de',
-			direction: 'target_to_english',
+			sourceLanguage: 'English',
+			sourceLocale: 'en',
+			targetLanguage: 'German',
+			targetLocale: 'de',
+			direction: 'target_to_source',
 			profile: { ...defaultProfile, recentPrompts: [exercise.prompt] }
 		});
 		expect(repeated).toBeNull();
+
+		const differentSource = await cachedExercise({
+			platform,
+			sourceLanguage: 'Spanish',
+			sourceLocale: 'es',
+			targetLanguage: 'German',
+			targetLocale: 'de',
+			direction: 'target_to_source',
+			profile: { ...defaultProfile }
+		});
+		expect(differentSource).toBeNull();
 	});
 });

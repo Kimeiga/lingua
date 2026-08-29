@@ -34,6 +34,7 @@ body {
 
 button,
 input,
+select,
 textarea {
 	font: inherit;
 }
@@ -44,6 +45,7 @@ button {
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible {
 	outline: 3px solid color-mix(in srgb, var(--blue) 45%, transparent);
 	outline-offset: 3px;
@@ -63,4 +65,3 @@ textarea:focus-visible {
 		animation-iteration-count: 1 !important;
 	}
 }
-

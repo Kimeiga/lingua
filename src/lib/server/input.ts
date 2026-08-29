@@ -1,7 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { defaultProfile, type Direction, type LearnerProfile } from '$lib/contracts';
+import { defaultProfile, type Direction, type LanguageOption, type LearnerProfile } from '$lib/contracts';
+import { languages } from '$lib/languages';
 
-const directionValues = new Set<Direction>(['target_to_english', 'english_to_target']);
+const directionValues = new Set<Direction>(['target_to_source', 'source_to_target']);
 
 export function cleanString(value: unknown, limit: number): string {
 	return typeof value === 'string' ? value.trim().slice(0, limit) : '';
@@ -16,14 +17,13 @@ export function cleanStrings(value: unknown, limit: number, itemLimit: number): 
 		.slice(0, limit);
 }
 
-export function parseLanguage(value: unknown): { name: string; locale: string } {
-	if (!value || typeof value !== 'object') throw error(400, 'Choose a target language.');
+export function parseLanguage(value: unknown, role: 'source' | 'target' = 'target'): LanguageOption {
+	if (!value || typeof value !== 'object') throw error(400, `Choose a ${role} language.`);
 	const record = value as Record<string, unknown>;
-	const name = cleanString(record.name, 48);
-	const locale = cleanString(record.locale, 16) || 'und';
-	if (!name || !/^[\p{L}\p{M} .()'’-]+$/u.test(name)) throw error(400, 'Choose a valid target language.');
-	if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$|^und$/.test(locale)) throw error(400, 'Choose a valid language locale.');
-	return { name, locale };
+	const locale = cleanString(record.locale, 16);
+	const language = languages.find((option) => option.locale === locale);
+	if (!language) throw error(400, `Choose a valid ${role} language.`);
+	return language;
 }
 
 export function parseDirections(value: unknown): Direction[] {
@@ -52,11 +52,13 @@ export function parseClientId(value: unknown): string {
 	return clientId;
 }
 
-export function chooseDirection(directions: Direction[]): Direction {
+export function chooseDirection(directions: Direction[], previous?: unknown): Direction {
 	if (directions.length === 1) return directions[0];
-	const random = new Uint32Array(1);
-	crypto.getRandomValues(random);
-	return directions[random[0] % directions.length];
+	if (directionValues.has(previous as Direction)) {
+		const alternate = directions.find((direction) => direction !== previous);
+		if (alternate) return alternate;
+	}
+	return directions[0];
 }
 
 export function normalizeAnswer(value: string): string {
@@ -66,4 +68,3 @@ export function normalizeAnswer(value: string): string {
 		.replace(/[\p{P}\p{S}\s]+/gu, '')
 		.trim();
 }
-

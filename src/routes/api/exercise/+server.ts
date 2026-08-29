@@ -11,15 +11,25 @@ import { consumeAiUnits } from '$lib/server/usage';
 export const POST: RequestHandler = async ({ request, platform, fetch }) => {
 	const body = await request.json().catch(() => null) as Record<string, unknown> | null;
 	if (!body) throw error(400, 'The session settings could not be read.');
-	const language = parseLanguage(body.language);
-	const direction = chooseDirection(parseDirections(body.directions));
+	const sourceLanguage = parseLanguage(body.sourceLanguage, 'source');
+	const targetLanguage = parseLanguage(body.targetLanguage, 'target');
+	if (sourceLanguage.locale === targetLanguage.locale) throw error(400, 'Choose two different languages.');
+	const direction = chooseDirection(parseDirections(body.directions), body.previousDirection);
 	const profile = sanitizeProfile(body.profile);
 	const clientId = parseClientId(body.clientId);
 	const stateSecret = runtimeValue(platform, 'TUTOR_STATE_SECRET');
 	if (!stateSecret) throw error(503, 'The tutor is not configured yet.');
 
 	try {
-		let exercise = await cachedExercise({ platform, language: language.name, locale: language.locale, direction, profile });
+		let exercise = await cachedExercise({
+			platform,
+			sourceLanguage: sourceLanguage.name,
+			sourceLocale: sourceLanguage.locale,
+			targetLanguage: targetLanguage.name,
+			targetLocale: targetLanguage.locale,
+			direction,
+			profile
+		});
 		if (!exercise) {
 			const apiKey = runtimeValue(platform, 'OPENAI_API_KEY');
 			if (!apiKey) throw error(503, 'The tutor is not configured yet.');
@@ -28,8 +38,10 @@ export const POST: RequestHandler = async ({ request, platform, fetch }) => {
 				fetcher: fetch,
 				apiKey,
 				model: runtimeValue(platform, 'OPENAI_MODEL') || 'gpt-5.6-sol',
-				targetLanguage: language.name,
-				targetLocale: language.locale,
+				sourceLanguage: sourceLanguage.name,
+				sourceLocale: sourceLanguage.locale,
+				targetLanguage: targetLanguage.name,
+				targetLocale: targetLanguage.locale,
 				direction,
 				profile,
 				safetyIdentifier: identifier
@@ -49,6 +61,8 @@ export const POST: RequestHandler = async ({ request, platform, fetch }) => {
 		const result: PublicExercise = {
 			id: state.id,
 			stateToken,
+			sourceLanguage: exercise.sourceLanguage,
+			sourceLocale: exercise.sourceLocale,
 			targetLanguage: exercise.targetLanguage,
 			targetLocale: exercise.targetLocale,
 			direction: exercise.direction,

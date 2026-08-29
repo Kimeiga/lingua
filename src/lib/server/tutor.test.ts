@@ -3,9 +3,11 @@ import type { GeneratedExercise } from '$lib/contracts';
 import { exactReferenceMatch, findReferences } from './tutor';
 
 const exercise: GeneratedExercise = {
+	sourceLanguage: 'English',
+	sourceLocale: 'en',
 	targetLanguage: 'German',
 	targetLocale: 'de',
-	direction: 'english_to_target',
+	direction: 'source_to_target',
 	cefr: 'B1',
 	situation: 'Changing an appointment',
 	prompt: 'Could we move the appointment to Friday?',
@@ -31,4 +33,3 @@ describe('tutor shortcuts and references', () => {
 		expect(findReferences(exercise, 'verschieben')[0]?.definition).toBe('move or reschedule');
 	});
 });
-

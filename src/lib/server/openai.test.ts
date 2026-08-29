@@ -6,7 +6,7 @@ describe('model output validation', () => {
 		const exercise = sanitizeGeneratedExercise({
 			targetLanguage: 'Wrong',
 			targetLocale: 'xx',
-			direction: 'english_to_target',
+			direction: 'source_to_target',
 			cefr: 'B1',
 			situation: 'A delayed train',
 			prompt: 'Der Zug fällt heute aus.',
@@ -17,9 +17,10 @@ describe('model output validation', () => {
 			sourceLexicon: [{ surface: 'fällt aus', lemma: 'ausfallen', pronunciation: '', definition: 'is cancelled', morphology: 'third-person present', role: 'predicate', note: '' }],
 			answerLexicon: [{ surface: 'cancelled', lemma: 'cancel', pronunciation: '', definition: 'not running', morphology: 'past participle', role: 'predicate', note: '' }],
 			grammarPoints: [{ title: 'ausfallen', explanation: 'A separable verb.', pattern: 'fällt … aus' }]
-		}, 'German', 'de', 'target_to_english');
+		}, 'English', 'en', 'German', 'de', 'target_to_source');
+		expect(exercise.sourceLanguage).toBe('English');
 		expect(exercise.targetLanguage).toBe('German');
-		expect(exercise.direction).toBe('target_to_english');
+		expect(exercise.direction).toBe('target_to_source');
 	});
 
 	it('downgrades repairable feedback when the issue span is not in the answer', () => {

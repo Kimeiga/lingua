@@ -1,4 +1,4 @@
-export type Direction = 'target_to_english' | 'english_to_target';
+export type Direction = 'target_to_source' | 'source_to_target';
 export type TutorStatus = 'correct' | 'repairable' | 'retry';
 
 export interface LanguageOption {
@@ -34,6 +34,8 @@ export interface GrammarPoint {
 }
 
 export interface GeneratedExercise {
+	sourceLanguage: string;
+	sourceLocale: string;
 	targetLanguage: string;
 	targetLocale: string;
 	direction: Direction;
@@ -59,6 +61,8 @@ export interface ExerciseState {
 export interface PublicExercise {
 	id: string;
 	stateToken: string;
+	sourceLanguage: string;
+	sourceLocale: string;
 	targetLanguage: string;
 	targetLocale: string;
 	direction: Direction;
@@ -106,4 +110,3 @@ export const defaultProfile: LearnerProfile = {
 	correct: 0,
 	recentPrompts: []
 };
-
